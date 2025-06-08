@@ -2,14 +2,17 @@
 using Business.Interfaces;
 using Business.Models;
 using Grpc.Core;
-using Protos;
+using Grpc.CustomerAuth;
+using Grpc.UserAuth;
 using System.Diagnostics;
+using static Grpc.UserAuth.GrpcUserAuth;
 
 namespace Business.Services;
 
-public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAuthClient, IJwtTokenService jwtTokenService) : IAuthService
+public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAuthClient, GrpcUserAuth.GrpcUserAuthClient grpcUserAuthClient, IJwtTokenService jwtTokenService) : IAuthService
 {
     private readonly GrpcCustomerAuth.GrpcCustomerAuthClient _grpcCustomerAuthClient = grpcCustomerAuthClient;
+    private readonly GrpcUserAuth.GrpcUserAuthClient _grpcUserAuthClient = grpcUserAuthClient;
     private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
 
 
@@ -44,7 +47,7 @@ public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAut
     }
 
 
-    public async Task<AuthResult<AuthData>> CustomerLoginAsync(CustomerLoginRequestDto request)
+    public async Task<AuthResult<AuthData>> CustomerLoginAsync(LoginRequestDto request)
     {
         try
         {
@@ -105,6 +108,44 @@ public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAut
                 UserId = grpcResponse.AuthInfo.UserId,
                 EmailConfirmed = grpcResponse.AuthInfo.EmailConfirmed,
             });
+        }
+        catch (RpcException ex)
+        {
+            Debug.WriteLine($"RPC exception occured. {ex.Message}");
+            return AuthResult<AuthData>.InternalServerError("RPC exception occured.");
+        }
+    }
+
+
+    public async Task<AuthResult<AuthData>> UserLoginAsync(LoginRequestDto request)
+    {
+        try
+        {
+            var grpcRequest = new UserLoginRequest
+            {
+                Email = request.Email,
+                Password = request.Password,
+            };
+
+            var grpcResponse = await _grpcUserAuthClient.LoginUserAsync(grpcRequest);
+
+            if (grpcResponse.Succeeded)
+            {
+                var token = _jwtTokenService.GenerateToken(
+                    grpcResponse.AuthInfo.UserId,
+                    grpcRequest.Email,
+                    "User");
+
+                return AuthResult<AuthData>.Ok(new AuthData
+                {
+                    Token = token,
+                    UserType = "User",
+                    UserId = grpcResponse.AuthInfo.UserId,
+                    EmailConfirmed = grpcResponse.AuthInfo.EmailConfirmed
+                });
+            }
+
+            return AuthResult<AuthData>.Unauthorized("Invalid login.");
         }
         catch (RpcException ex)
         {

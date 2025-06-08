@@ -24,7 +24,7 @@ public class CustomerAuth(IAuthService authService, IVerificationService verific
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> LoginCustomer(CustomerLoginRequestDto request)
+    public async Task<IActionResult> LoginCustomer(LoginRequestDto request)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);

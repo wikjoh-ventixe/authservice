@@ -1,7 +1,8 @@
 using Business.Interfaces;
 using Business.Services;
 using Grpc.Net.Client;
-using Protos;
+using Grpc.CustomerAuth;
+using Grpc.UserAuth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -17,6 +18,11 @@ builder.Services.AddSingleton(provider =>
 {
     var channel = GrpcChannel.ForAddress(builder.Configuration["CustomerAuthApi"]!);
     return new GrpcCustomerAuth.GrpcCustomerAuthClient(channel);
+});
+builder.Services.AddSingleton(provider =>
+{
+    var channel = GrpcChannel.ForAddress(builder.Configuration["UserAuthApi"]!);
+    return new GrpcUserAuth.GrpcUserAuthClient(channel);
 });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

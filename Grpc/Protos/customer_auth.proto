@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "Protos";
+option csharp_namespace = "Grpc.CustomerAuth";
 
 service GrpcCustomerAuth {
 	rpc RegisterCustomer(CustomerRegistrationRequest) returns (CustomerRegistrationResponse);
