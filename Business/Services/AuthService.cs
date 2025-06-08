@@ -1,31 +1,115 @@
 ﻿using Business.Dtos;
 using Business.Interfaces;
 using Business.Models;
+using Grpc.Core;
 using Protos;
+using System.Diagnostics;
 
 namespace Business.Services;
 
-public class AuthService(GrpcCustomer.GrpcCustomerClient grpcCustomerClient) : IAuthService
+public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAuthClient, IJwtTokenService jwtTokenService) : IAuthService
 {
-    private readonly GrpcCustomer.GrpcCustomerClient _grpcCustomerClient = grpcCustomerClient;
+    private readonly GrpcCustomerAuth.GrpcCustomerAuthClient _grpcCustomerAuthClient = grpcCustomerAuthClient;
+    private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
 
 
-    // CREATE
-    public async Task<AuthResult<string?>> RegisterCustomer(CustomerRegistrationRequestDto request)
+    public async Task<AuthResult<AuthData>> RegisterCustomerAsync(CustomerRegistrationRequestDto request)
     {
-        if (request == null)
-            return AuthResult<string?>.BadRequest("Request cannot be null.");
-
-        var grpcRequest = new CustomerRegistrationRequest
+        try
         {
-            Email = request.Email,
-            Password = request.Password,
-        };
+            if (request == null)
+                return AuthResult<AuthData>.BadRequest("Request cannot be null.");
 
-        var grpcResponse = await _grpcCustomerClient.RegisterCustomerAsync(grpcRequest);
-        if (!grpcResponse.Succeeded)
-            return AuthResult<string?>.InternalServerError("Failed creating customer over gRPC.");
+            var grpcRequest = new CustomerRegistrationRequest
+            {
+                Email = request.Email,
+                Password = request.Password,
+            };
 
-        return AuthResult<string?>.Ok(grpcResponse.UserId);
+            var grpcResponse = await _grpcCustomerAuthClient.RegisterCustomerAsync(grpcRequest);
+            if (!grpcResponse.Succeeded)
+                return AuthResult<AuthData>.InternalServerError("Failed creating customer over gRPC.");
+
+            return AuthResult<AuthData>.Ok(new AuthData
+            {
+                UserId = grpcResponse.AuthInfo.UserId,
+                UserType = "Customer"
+            });
+        }
+        catch (RpcException ex)
+        {
+            Debug.WriteLine(ex.Message);
+            return AuthResult<AuthData>.InternalServerError("RPC exception occured.");
+        }
+    }
+
+
+    public async Task<AuthResult<AuthData>> CustomerLoginAsync(CustomerLoginRequestDto request)
+    {
+        try
+        {
+            var grpcRequest = new CustomerLoginRequest
+            {
+                Email = request.Email,
+                Password = request.Password,
+            };
+
+            var grpcResponse = await _grpcCustomerAuthClient.LoginCustomerAsync(grpcRequest);
+
+            if (grpcResponse.Succeeded)
+            {
+                if (grpcResponse.AuthInfo.EmailConfirmed == false)
+                    return AuthResult<AuthData>.Unauthorized("Verify your email before logging in.");
+
+                var token = _jwtTokenService.GenerateToken(
+                    grpcResponse.AuthInfo.UserId,
+                    grpcRequest.Email,
+                    "Customer");
+
+                return AuthResult<AuthData>.Ok(new AuthData
+                {
+                    Token = token,
+                    UserType = "Customer",
+                    UserId = grpcResponse.AuthInfo.UserId,
+                    EmailConfirmed = grpcResponse.AuthInfo.EmailConfirmed
+                });
+            }
+
+            return AuthResult<AuthData>.Unauthorized("Invalid login.");
+        }
+        catch (RpcException ex)
+        {
+            Debug.WriteLine($"RPC exception occured. {ex.Message}");
+            return AuthResult<AuthData>.InternalServerError("RPC exception occured.");
+        }
+    }
+
+
+    public async Task<AuthResult<AuthData>> CustomerVerifyEmail(CustomerVerifyEmailRequestDto request)
+    {
+        try
+        {
+            var grpcRequest = new CustomerVerifyEmailRequest
+            {
+                Email = request.Email,
+                Token = request.Token
+            };
+
+            var grpcResponse = await _grpcCustomerAuthClient.VerifyCustomerEmailAsync(grpcRequest);
+
+            if (!grpcResponse.Succeeded)
+                return AuthResult<AuthData>.InternalServerError("Failed verifying email.");
+
+            return AuthResult<AuthData>.Ok(new AuthData
+            {
+                UserId = grpcResponse.AuthInfo.UserId,
+                EmailConfirmed = grpcResponse.AuthInfo.EmailConfirmed,
+            });
+        }
+        catch (RpcException ex)
+        {
+            Debug.WriteLine($"RPC exception occured. {ex.Message}");
+            return AuthResult<AuthData>.InternalServerError("RPC exception occured.");
+        }
     }
 }

@@ -13,13 +13,23 @@ public class CustomerAuth(IAuthService authService, IVerificationService verific
     private readonly IVerificationService _verificationService = verificationService;
 
 
-    [HttpPost]
+    [HttpPost("register")]
     public async Task<IActionResult> RegisterCustomer(CustomerRegistrationRequestDto request)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var result = await _authService.RegisterCustomer(request);
+        var result = await _authService.RegisterCustomerAsync(request);
         return result.Succeeded ? Created((string?)null, result.Data) : StatusCode(result.StatusCode, result.ErrorMessage);
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> LoginCustomer(CustomerLoginRequestDto request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _authService.CustomerLoginAsync(request);
+        return result.Succeeded ? Ok(result.Data) : StatusCode(result.StatusCode, result.ErrorMessage);
     }
 }

@@ -5,5 +5,7 @@ namespace Business.Interfaces;
 
 public interface IAuthService
 {
-    Task<AuthResult<string?>> RegisterCustomer(CustomerRegistrationRequestDto request);
+    Task<AuthResult<AuthData>> CustomerLoginAsync(CustomerLoginRequestDto request);
+    Task<AuthResult<AuthData>> CustomerVerifyEmail(CustomerVerifyEmailRequestDto request);
+    Task<AuthResult<AuthData>> RegisterCustomerAsync(CustomerRegistrationRequestDto request);
 }
