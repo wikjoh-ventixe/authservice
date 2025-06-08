@@ -1,3 +1,5 @@
+using Business.Interfaces;
+using Business.Services;
 using Grpc.Net.Client;
 using Protos;
 
@@ -12,9 +14,22 @@ builder.Services.AddSingleton(provider =>
     return new GrpcCustomer.GrpcCustomerClient(channel);
 });
 
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IVerificationService, VerificationService>();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
+
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Auth Service API");
+    c.RoutePrefix = string.Empty;
+});
+
 app.MapOpenApi();
 app.UseHttpsRedirection();
+app.UseCors(x => x.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 
 app.UseAuthentication();
 app.UseAuthorization();
