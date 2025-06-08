@@ -61,8 +61,8 @@ public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAut
 
             if (grpcResponse.Succeeded)
             {
-                if (grpcResponse.AuthInfo.EmailConfirmed == false)
-                    return AuthResult<AuthData>.Unauthorized("Verify your email before logging in.");
+                //if (grpcResponse.AuthInfo.EmailConfirmed == false)
+                //    return AuthResult<AuthData>.Unauthorized("Verify your email before logging in.");
 
                 var token = _jwtTokenService.GenerateToken(
                     grpcResponse.AuthInfo.UserId,
