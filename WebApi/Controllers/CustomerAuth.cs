@@ -2,6 +2,7 @@
 using Business.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 
 namespace WebApi.Controllers;
 
@@ -31,5 +32,20 @@ public class CustomerAuth(IAuthService authService, IVerificationService verific
 
         var result = await _authService.CustomerLoginAsync(request);
         return result.Succeeded ? Ok(result.Data) : StatusCode(result.StatusCode, result.ErrorMessage);
+    }
+
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail([FromQuery] string email, [FromQuery] string token)
+    {
+        if (email == null || token == null)
+            return BadRequest("Parameters cannot be null.");
+
+        var result = await _authService.CustomerVerifyEmailAsync(new CustomerVerifyEmailRequestDto
+        {
+            Email = email,
+            Token = token
+        });
+
+        return result.Succeeded ? Ok() : StatusCode(result.StatusCode, result.ErrorMessage);
     }
 }

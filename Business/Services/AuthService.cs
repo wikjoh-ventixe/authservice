@@ -1,4 +1,5 @@
 ﻿using Business.Dtos;
+using Business.Dtos.Asb;
 using Business.Interfaces;
 using Business.Models;
 using Grpc.Core;
@@ -9,11 +10,12 @@ using static Grpc.UserAuth.GrpcUserAuth;
 
 namespace Business.Services;
 
-public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAuthClient, GrpcUserAuth.GrpcUserAuthClient grpcUserAuthClient, IJwtTokenService jwtTokenService) : IAuthService
+public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAuthClient, GrpcUserAuth.GrpcUserAuthClient grpcUserAuthClient, IJwtTokenService jwtTokenService, IVerificationService verificationService) : IAuthService
 {
     private readonly GrpcCustomerAuth.GrpcCustomerAuthClient _grpcCustomerAuthClient = grpcCustomerAuthClient;
     private readonly GrpcUserAuth.GrpcUserAuthClient _grpcUserAuthClient = grpcUserAuthClient;
     private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
+    private readonly IVerificationService _verificationService = verificationService;
 
 
     public async Task<AuthResult<AuthData>> RegisterCustomerAsync(CustomerRegistrationRequestDto request)
@@ -32,6 +34,13 @@ public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAut
             var grpcResponse = await _grpcCustomerAuthClient.RegisterCustomerAsync(grpcRequest);
             if (!grpcResponse.Succeeded)
                 return AuthResult<AuthData>.InternalServerError("Failed creating customer over gRPC.");
+
+            var token = grpcResponse.AuthInfo.ConfirmEmailToken;
+            await _verificationService.SendVerificationTokenAsync(new SendVerificationTokenRequest
+            {
+                Email = request.Email,
+                Token = token
+            });
 
             return AuthResult<AuthData>.Ok(new AuthData
             {
@@ -61,8 +70,8 @@ public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAut
 
             if (grpcResponse.Succeeded)
             {
-                //if (grpcResponse.AuthInfo.EmailConfirmed == false)
-                //    return AuthResult<AuthData>.Unauthorized("Verify your email before logging in.");
+                if (grpcResponse.AuthInfo.EmailConfirmed == false)
+                    return AuthResult<AuthData>.Unauthorized("Verify your email before logging in.");
 
                 var token = _jwtTokenService.GenerateToken(
                     grpcResponse.AuthInfo.UserId,
@@ -88,7 +97,7 @@ public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAut
     }
 
 
-    public async Task<AuthResult<AuthData>> CustomerVerifyEmail(CustomerVerifyEmailRequestDto request)
+    public async Task<AuthResult<AuthData>> CustomerVerifyEmailAsync(CustomerVerifyEmailRequestDto request)
     {
         try
         {

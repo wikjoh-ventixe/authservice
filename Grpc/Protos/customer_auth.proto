@@ -6,6 +6,7 @@ service GrpcCustomerAuth {
 	rpc RegisterCustomer(CustomerRegistrationRequest) returns (CustomerRegistrationResponse);
 	rpc LoginCustomer(CustomerLoginRequest) returns (CustomerLoginResponse);
 	rpc VerifyCustomerEmail(CustomerVerifyEmailRequest) returns (CustomerVerifyEmailResponse);
+	rpc ValidateEmailToken(ValidateEmailTokenRequest) returns (ValidateEmailTokenResponse);
 }
 
 
@@ -50,4 +51,16 @@ message AuthInfo {
 	string UserType = 2;
 	string UserId = 3;
 	bool EmailConfirmed = 4;
+	string ConfirmEmailToken = 5;
+}
+
+message ValidateEmailTokenRequest {
+	string email = 1;
+	string token = 2;
+}
+
+message ValidateEmailTokenResponse {
+	bool succeeded = 1;
+    int32 statusCode = 2;
+    string errorMessage = 3;
 }
