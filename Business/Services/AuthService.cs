@@ -97,31 +97,27 @@ public class AuthService(GrpcCustomerAuth.GrpcCustomerAuthClient grpcCustomerAut
     }
 
 
-    public async Task<AuthResult<AuthData>> CustomerVerifyEmailAsync(CustomerVerifyEmailRequestDto request)
+    public async Task<AuthResult<bool?>> CustomerVerifyEmailAsync(CustomerVerifyEmailRequestDto request)
     {
         try
         {
-            var grpcRequest = new CustomerVerifyEmailRequest
+            var grpcRequest = new ValidateEmailTokenRequest
             {
                 Email = request.Email,
                 Token = request.Token
             };
 
-            var grpcResponse = await _grpcCustomerAuthClient.VerifyCustomerEmailAsync(grpcRequest);
+            var grpcResponse = await _grpcCustomerAuthClient.ValidateEmailTokenAsync(grpcRequest);
 
             if (!grpcResponse.Succeeded)
-                return AuthResult<AuthData>.InternalServerError("Failed verifying email.");
+                return AuthResult<bool?>.InternalServerError("Failed verifying email.");
 
-            return AuthResult<AuthData>.Ok(new AuthData
-            {
-                UserId = grpcResponse.AuthInfo.UserId,
-                EmailConfirmed = grpcResponse.AuthInfo.EmailConfirmed,
-            });
+            return AuthResult<bool?>.Ok();
         }
         catch (RpcException ex)
         {
             Debug.WriteLine($"RPC exception occured. {ex.Message}");
-            return AuthResult<AuthData>.InternalServerError("RPC exception occured.");
+            return AuthResult<bool?>.InternalServerError("RPC exception occured.");
         }
     }
 
